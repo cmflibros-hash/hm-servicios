@@ -59,6 +59,7 @@ const InventoryModule = {
           <td class="actions-cell">
             <button class="btn btn-accent btn-sm" onclick="InventoryModule.showDetail('${p.id}')" title="Ver detalle">🔍</button>
             <button class="btn btn-primary btn-sm" onclick="InventoryModule.showEditModal('${p.id}')" title="Editar">✏️</button>
+            <button class="btn btn-sm" style="background:#fff8e1;color:#e65100;border:1px solid #ffe0b2;" onclick="InventoryModule.showMovementModal('${p.id}')" title="Entrada/Salida">📦</button>
             <button class="btn btn-danger btn-sm" onclick="InventoryModule.confirmDelete('${p.id}')" title="Eliminar">🗑️</button>
           </td>
         </tr>
@@ -258,6 +259,113 @@ const InventoryModule = {
     this.render();
   },
 
+  // Show movement modal (Entrada / Salida)
+  showMovementModal(productId) {
+    const product = DB.getProduct(productId);
+    if (!product) {
+      App.showToast('Producto no encontrado', 'error');
+      return;
+    }
+
+    document.getElementById('modal-title').textContent = `📦 Movimiento: ${product.sku}`;
+    document.getElementById('modal-body').innerHTML = `
+      <div style="margin-bottom:14px;padding:10px 14px;background:#f0f4ff;border-radius:var(--radius);border:1px solid #d0d9ff;">
+        <strong style="color:var(--primary);">${product.name}</strong><br>
+        <span style="font-size:0.8rem;color:var(--gray-600);">SKU: ${product.sku} | Stock actual: <strong>${product.quantity}</strong> unidades</span>
+      </div>
+      <form id="movement-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tipo de Movimiento *</label>
+            <div style="display:flex;gap:10px;">
+              <label class="checkbox-label" style="flex:1;justify-content:center;padding:10px;border:2px solid var(--success);border-radius:var(--radius);background:#e8f5e9;cursor:pointer;">
+                <input type="radio" name="mov-type" value="entrada" checked style="accent-color:var(--success);">
+                <span style="font-weight:700;color:var(--success);font-size:0.95rem;">⬆ Entrada</span>
+              </label>
+              <label class="checkbox-label" style="flex:1;justify-content:center;padding:10px;border:2px solid var(--danger);border-radius:var(--radius);background:#ffebee;cursor:pointer;">
+                <input type="radio" name="mov-type" value="salida" style="accent-color:var(--danger);">
+                <span style="font-weight:700;color:var(--danger);font-size:0.95rem;">⬇ Salida</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="mov-quantity">Cantidad *</label>
+            <input type="number" id="mov-quantity" min="1" value="1" required>
+          </div>
+          <div class="form-group">
+            <label for="mov-date">Fecha</label>
+            <input type="date" id="mov-date" value="${new Date().toISOString().split('T')[0]}">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="mov-observation">Observación / Detalle *</label>
+          <textarea id="mov-observation" placeholder="Ej: Recepción proveedor ABC / Retiro para instalación en faena..." required style="min-height:70px;"></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn" style="background:var(--gray-300);color:var(--gray-800);" onclick="Modal.close()">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-movement">Registrar Movimiento</button>
+        </div>
+      </form>
+    `;
+
+    document.getElementById('movement-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      this._handleMovement(product);
+    });
+
+    Modal.open();
+  },
+
+  // Handle movement save
+  _handleMovement(product) {
+    const type = document.querySelector('input[name="mov-type"]:checked').value;
+    const quantity = parseInt(document.getElementById('mov-quantity').value) || 0;
+    const date = document.getElementById('mov-date').value;
+    const observation = document.getElementById('mov-observation').value.trim();
+
+    if (quantity <= 0) {
+      App.showToast('La cantidad debe ser mayor a 0', 'error');
+      return;
+    }
+    if (!observation) {
+      App.showToast('Debes ingresar una observación del movimiento', 'error');
+      return;
+    }
+
+    const newStock = type === 'entrada'
+      ? product.quantity + quantity
+      : product.quantity - quantity;
+
+    if (newStock < 0) {
+      App.showToast('Stock insuficiente para realizar la salida', 'error');
+      return;
+    }
+
+    // Update product stock
+    DB.updateProduct(product.id, { quantity: newStock });
+
+    // Record movement
+    DB.addMovement({
+      productId: product.id,
+      productSku: product.sku,
+      productName: product.name,
+      type: type, // 'entrada' or 'salida'
+      quantity: quantity,
+      date: date,
+      observation: observation,
+      stockBefore: product.quantity,
+      stockAfter: newStock
+    });
+
+    const label = type === 'entrada' ? 'Entrada registrada' : 'Salida registrada';
+    App.showToast(`${label}: ${quantity} unidades - Stock actual: ${newStock}`, 'success');
+
+    Modal.close();
+    this.render();
+  },
+
   // Show product detail in a compact modal with real QR
   showDetail(id) {
     const product = DB.getProduct(id);
@@ -338,6 +446,7 @@ const InventoryModule = {
       <div class="form-actions" style="margin-top:12px;">
         <button class="btn" style="background:var(--gray-300);color:var(--gray-800);" onclick="App.closeDetailModal()">Cerrar</button>
         <button class="btn btn-primary" onclick="InventoryModule.showEditModal('${product.id}'); App.closeDetailModal();">Editar Producto</button>
+        <button class="btn btn-sm" style="background:#fff8e1;color:#e65100;border:1px solid #ffe0b2;" onclick="InventoryModule.showMovementModal('${product.id}'); App.closeDetailModal();">📦 E/S</button>
       </div>
     `;
 
@@ -345,7 +454,6 @@ const InventoryModule = {
     const qrContainer = document.getElementById('qr-container-' + product.id);
     const qrData = `HM-Servicios/${product.sku}|${product.name}`;
     
-    // Use QRCode from CDN
     if (typeof QRCode !== 'undefined') {
       const qr = new QRCode(qrContainer, {
         text: qrData,
@@ -356,7 +464,6 @@ const InventoryModule = {
         correctLevel: QRCode.CorrectLevel.M
       });
 
-      // Download QR as PNG
       document.getElementById('btn-dl-qr-' + product.id).addEventListener('click', function() {
         const canvas = qrContainer.querySelector('canvas');
         if (canvas) {
@@ -370,6 +477,125 @@ const InventoryModule = {
 
     document.getElementById('detail-modal').classList.remove('hidden');
     document.getElementById('modal-backdrop').classList.remove('hidden');
+  },
+
+  // Show quick movement modal (select product first)
+  showQuickMovement() {
+    const products = DB.getProducts();
+    if (products.length === 0) {
+      App.showToast('No hay productos en el inventario', 'error');
+      return;
+    }
+
+    const options = products.map(p =>
+      `<option value="${p.id}">${p.sku} — ${p.name} (Stock: ${p.quantity})</option>`
+    ).join('');
+
+    document.getElementById('modal-title').textContent = '📦 Entrada / Salida Rápida';
+    document.getElementById('modal-body').innerHTML = `
+      <form id="quick-movement-form">
+        <div class="form-group">
+          <label for="qmov-product">Producto *</label>
+          <select id="qmov-product" required>
+            <option value="">Seleccionar producto...</option>
+            ${options}
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tipo *</label>
+            <div style="display:flex;gap:10px;">
+              <label class="checkbox-label" style="flex:1;justify-content:center;padding:10px;border:2px solid var(--success);border-radius:var(--radius);background:#e8f5e9;cursor:pointer;">
+                <input type="radio" name="qmov-type" value="entrada" checked style="accent-color:var(--success);">
+                <span style="font-weight:700;color:var(--success);font-size:0.95rem;">⬆ Entrada</span>
+              </label>
+              <label class="checkbox-label" style="flex:1;justify-content:center;padding:10px;border:2px solid var(--danger);border-radius:var(--radius);background:#ffebee;cursor:pointer;">
+                <input type="radio" name="qmov-type" value="salida" style="accent-color:var(--danger);">
+                <span style="font-weight:700;color:var(--danger);font-size:0.95rem;">⬇ Salida</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="qmov-quantity">Cantidad *</label>
+            <input type="number" id="qmov-quantity" min="1" value="1" required>
+          </div>
+          <div class="form-group">
+            <label for="qmov-date">Fecha</label>
+            <input type="date" id="qmov-date" value="${new Date().toISOString().split('T')[0]}">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="qmov-observation">Observación / Detalle *</label>
+          <textarea id="qmov-observation" placeholder="Ej: Recepción proveedor / Retiro para instalación..." required style="min-height:70px;"></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn" style="background:var(--gray-300);color:var(--gray-800);" onclick="Modal.close()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Registrar Movimiento</button>
+        </div>
+      </form>
+    `;
+
+    document.getElementById('quick-movement-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const prodId = document.getElementById('qmov-product').value;
+      if (!prodId) {
+        App.showToast('Selecciona un producto', 'error');
+        return;
+      }
+      const product = DB.getProduct(prodId);
+      if (product) {
+        this._handleMovementFromForm(product);
+      }
+    });
+
+    Modal.open();
+  },
+
+  // Handle movement from quick form (reuses logic)
+  _handleMovementFromForm(product) {
+    const type = document.querySelector('input[name="qmov-type"]:checked').value;
+    const quantity = parseInt(document.getElementById('qmov-quantity').value) || 0;
+    const date = document.getElementById('qmov-date').value;
+    const observation = document.getElementById('qmov-observation').value.trim();
+
+    if (quantity <= 0) {
+      App.showToast('La cantidad debe ser mayor a 0', 'error');
+      return;
+    }
+    if (!observation) {
+      App.showToast('Debes ingresar una observación del movimiento', 'error');
+      return;
+    }
+
+    const newStock = type === 'entrada'
+      ? product.quantity + quantity
+      : product.quantity - quantity;
+
+    if (newStock < 0) {
+      App.showToast('Stock insuficiente para realizar la salida', 'error');
+      return;
+    }
+
+    DB.updateProduct(product.id, { quantity: newStock });
+    DB.addMovement({
+      productId: product.id,
+      productSku: product.sku,
+      productName: product.name,
+      type: type,
+      quantity: quantity,
+      date: date,
+      observation: observation,
+      stockBefore: product.quantity,
+      stockAfter: newStock
+    });
+
+    const label = type === 'entrada' ? 'Entrada registrada' : 'Salida registrada';
+    App.showToast(`${label}: ${quantity} unidades - Stock actual: ${newStock}`, 'success');
+
+    Modal.close();
+    this.render();
   },
 
   // Confirm before delete

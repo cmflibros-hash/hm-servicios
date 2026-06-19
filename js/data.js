@@ -51,9 +51,14 @@ const DB = {
           { id: '2', name: 'Jefe Bodega', email: 'bodega@hmservicios.cl', role: 'operator', active: true, createdAt: new Date().toISOString() },
           { id: '3', name: 'Técnico Terreno', email: 'tecnico@hmservicios.cl', role: 'operator', active: true, createdAt: new Date().toISOString() },
         ],
-        nextId: { products: 21, recipients: 4, users: 4 }
+        movements: [],
+        nextId: { products: 21, recipients: 4, users: 4, movements: 1 }
       };
       this._save(db);
+    } else {
+      // Ensure migrations for existing DBs
+      if (!db.movements) { db.movements = []; this._save(db); }
+      if (!db.nextId.movements) { db.nextId.movements = 1; this._save(db); }
     }
     return db;
   },
@@ -95,6 +100,27 @@ const DB = {
     db.products[idx]._deleted = true;
     this._save(db);
     return true;
+  },
+
+  // ---- MOVEMENTS (Entrada/Salida) ----
+  addMovement(movement) {
+    const db = this._ensure();
+    movement.id = String(db.nextId.movements++);
+    movement.createdAt = new Date().toISOString();
+    movement._deleted = false;
+    db.movements.push(movement);
+    this._save(db);
+    return movement;
+  },
+
+  getMovements() {
+    const db = this._ensure();
+    return db.movements.filter(m => !m._deleted).reverse(); // newest first
+  },
+
+  getProductMovements(productId) {
+    const db = this._ensure();
+    return db.movements.filter(m => m.productId === productId && !m._deleted).reverse();
   },
 
   // ---- RECIPIENTS ----

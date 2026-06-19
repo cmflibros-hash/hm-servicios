@@ -1,4 +1,4 @@
-<![CDATA[<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -44,6 +44,10 @@
             <span class="nav-icon">📦</span>
             <span>Inventario</span>
           </button>
+          <button class="nav-btn" data-module="movements">
+            <span class="nav-icon">📋</span>
+            <span>Historial E/S</span>
+          </button>
           <button class="nav-btn" data-module="recipients">
             <span class="nav-icon">📧</span>
             <span>Destinatarios</span>
@@ -61,7 +65,12 @@
       <!-- Main Content -->
       <main id="main-content">
         <header id="content-header">
-          <h1 id="module-title">Inventario</h1>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <h1 id="module-title">Inventario</h1>
+            <button id="btn-movement-quick" class="btn btn-sm" style="background:#fff8e1;color:#e65100;border:1px solid #ffe0b2;display:none;" onclick="InventoryModule.showQuickMovement()">
+              📦 Entrada / Salida
+            </button>
+          </div>
           <button id="btn-add" class="btn btn-primary">
             <span>+</span> Agregar
           </button>
@@ -104,9 +113,9 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script src="js/data.js"></script>
   <script src="js/inventory.js"></script>
+  <script src="js/movements.js"></script>
   <script src="js/recipients.js"></script>
   <script src="js/users.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
-]]>

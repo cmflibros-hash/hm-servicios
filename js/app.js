@@ -55,6 +55,10 @@ const App = {
         case 'inventory':
           InventoryModule.showAddModal();
           break;
+        case 'movements':
+          // No add button action for movements, but we can go to inventory
+          this.loadModule('inventory');
+          break;
         case 'recipients':
           RecipientsModule.showAddModal();
           break;
@@ -66,6 +70,11 @@ const App = {
   },
 
   setupHeaderButtons() {
+    // Quick movement button (visible only on inventory)
+    document.getElementById('btn-movement-quick').addEventListener('click', () => {
+      InventoryModule.showQuickMovement();
+    });
+
     // Settings gear button
     document.getElementById('btn-settings').addEventListener('click', () => {
       this.showToast('Panel de configuración próximamente', 'info');
@@ -90,6 +99,7 @@ const App = {
     // Update title
     const titles = {
       inventory: 'Inventario',
+      movements: 'Historial E/S',
       recipients: 'Destinatarios',
       users: 'Usuarios'
     };
@@ -97,21 +107,33 @@ const App = {
 
     // Show/hide add button based on module
     const addBtn = document.getElementById('btn-add');
-    addBtn.style.display = 'flex';
+    const movBtn = document.getElementById('btn-movement-quick');
 
     // Render module
     switch (module) {
       case 'inventory':
         InventoryModule.render();
+        addBtn.style.display = 'flex';
         addBtn.innerHTML = '<span>+</span> Agregar Producto';
+        movBtn.style.display = 'inline-flex';
+        break;
+      case 'movements':
+        MovementsModule.render();
+        addBtn.style.display = 'flex';
+        addBtn.innerHTML = '<span>←</span> Volver a Inventario';
+        movBtn.style.display = 'none';
         break;
       case 'recipients':
         RecipientsModule.render();
+        addBtn.style.display = 'flex';
         addBtn.innerHTML = '<span>+</span> Agregar Destinatario';
+        movBtn.style.display = 'none';
         break;
       case 'users':
         UsersModule.render();
+        addBtn.style.display = 'flex';
         addBtn.innerHTML = '<span>+</span> Agregar Usuario';
+        movBtn.style.display = 'none';
         break;
     }
   },
