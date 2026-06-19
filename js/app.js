@@ -9,6 +9,7 @@ const App = {
     this.setupNavigation();
     this.setupModal();
     this.setupAddButton();
+    this.setupHeaderButtons();
     this.loadModule('inventory');
   },
 
@@ -60,6 +61,20 @@ const App = {
         case 'users':
           UsersModule.showAddModal();
           break;
+      }
+    });
+  },
+
+  setupHeaderButtons() {
+    // Settings gear button
+    document.getElementById('btn-settings').addEventListener('click', () => {
+      this.showToast('Panel de configuración próximamente', 'info');
+    });
+
+    // Logout button
+    document.getElementById('btn-logout').addEventListener('click', () => {
+      if (confirm('¿Estás seguro de cerrar sesión?')) {
+        this.showToast('Sesión cerrada. Recarga la página para volver a iniciar.', 'info');
       }
     });
   },

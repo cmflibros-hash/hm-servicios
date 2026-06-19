@@ -106,19 +106,21 @@ const InventoryModule = {
             <label for="prod-category">Categoría</label>
             <select id="prod-category" required>
               <option value="">Seleccionar...</option>
-              <option value="Electrónica">Electrónica</option>
-              <option value="Ferretería">Ferretería</option>
-              <option value="Embalaje">Embalaje</option>
-              <option value="Seguridad">Seguridad</option>
-              <option value="Oficina">Oficina</option>
-              <option value="Limpieza">Limpieza</option>
+              <option value="Compresores">Compresores</option>
+              <option value="Filtración">Filtración</option>
+              <option value="Lubricación">Lubricación</option>
+              <option value="Mecánico">Mecánico</option>
+              <option value="Eléctrico">Eléctrico</option>
+              <option value="Instrumentación">Instrumentación</option>
+              <option value="Mantención">Mantención</option>
+              <option value="Tuberías">Tuberías</option>
               <option value="Otros">Otros</option>
             </select>
           </div>
         </div>
         <div class="form-group">
           <label for="prod-name">Nombre del Producto *</label>
-          <input type="text" id="prod-name" placeholder="Ej: Cables HDMI 2.1" required>
+          <input type="text" id="prod-name" placeholder="Ej: Filtro de Aceite Spin-On" required>
         </div>
         <div class="form-row">
           <div class="form-group">
@@ -178,7 +180,7 @@ const InventoryModule = {
             <label for="prod-category">Categoría</label>
             <select id="prod-category" required>
               <option value="">Seleccionar...</option>
-              ${['Electrónica','Ferretería','Embalaje','Seguridad','Oficina','Limpieza','Otros'].map(c =>
+              ${['Compresores','Filtración','Lubricación','Mecánico','Eléctrico','Instrumentación','Mantención','Tuberías','Otros'].map(c =>
                 `<option value="${c}" ${product.category === c ? 'selected' : ''}>${c}</option>`
               ).join('')}
             </select>
