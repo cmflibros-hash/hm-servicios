@@ -41,10 +41,10 @@ const InventoryModule = {
       let badgeText = 'Normal';
       if (p.quantity <= p.criticalStock) {
         badgeClass = 'badge-danger';
-        badgeText = 'Crítico';
+        badgeText = '⚠ Crítico';
       } else if (p.quantity <= p.minStock) {
         badgeClass = 'badge-warning';
-        badgeText = 'Bajo Stock';
+        badgeText = '⚠ Bajo';
       }
 
       return `
@@ -258,7 +258,7 @@ const InventoryModule = {
     this.render();
   },
 
-  // Show product detail in a modal
+  // Show product detail in a compact modal with real QR
   showDetail(id) {
     const product = DB.getProduct(id);
     if (!product) {
@@ -268,15 +268,27 @@ const InventoryModule = {
 
     let statusText = 'Normal';
     let statusClass = 'badge-ok';
+    let stockColor = 'var(--success)';
+    let barColor = 'var(--success)';
+    let barPct = 100;
+
     if (product.quantity <= product.criticalStock) {
-      statusText = '⚠️ Crítico';
+      statusText = '⚠ Crítico';
       statusClass = 'badge-danger';
+      stockColor = 'var(--danger)';
+      barColor = 'var(--danger)';
+      barPct = Math.min(100, Math.round((product.quantity / Math.max(product.criticalStock, 1)) * 50));
     } else if (product.quantity <= product.minStock) {
-      statusText = '⚠️ Bajo Stock';
+      statusText = '⚠ Bajo Stock';
       statusClass = 'badge-warning';
+      stockColor = 'var(--warning)';
+      barColor = 'var(--warning)';
+      barPct = Math.min(100, Math.round((product.quantity / Math.max(product.minStock, 1)) * 70));
+    } else {
+      barPct = Math.min(100, Math.round((product.quantity / Math.max(product.minStock * 2, 1)) * 100));
     }
 
-    document.getElementById('detail-title').textContent = `Detalle: ${product.name}`;
+    document.getElementById('detail-title').textContent = `📄 ${product.sku} — ${product.name}`;
     document.getElementById('detail-body').innerHTML = `
       <div class="detail-grid">
         <div class="detail-field">
@@ -287,42 +299,74 @@ const InventoryModule = {
           <div class="label">Categoría</div>
           <div class="value">${product.category}</div>
         </div>
-        <div class="detail-field">
+        <div class="detail-field" style="grid-column:span 2;">
           <div class="label">Stock Actual</div>
-          <div class="value" style="font-size:1.3rem;font-weight:700;color:${product.quantity <= product.criticalStock ? 'var(--danger)' : product.quantity <= product.minStock ? 'var(--warning)' : 'var(--success)'}">${product.quantity} unidades</div>
-        </div>
-        <div class="detail-field">
-          <div class="label">Estado</div>
-          <div class="value"><span class="badge ${statusClass}">${statusText}</span></div>
+          <div class="value" style="font-size:1.1rem;font-weight:700;color:${stockColor}">
+            ${product.quantity} unidades
+            <span class="badge ${statusClass}" style="margin-left:8px;vertical-align:middle;">${statusText}</span>
+          </div>
+          <div class="stock-bar-container">
+            <div class="stock-bar" style="width:${barPct}%;background:${barColor};"></div>
+          </div>
         </div>
         <div class="detail-field">
           <div class="label">Stock Mínimo</div>
-          <div class="value">${product.minStock} unidades</div>
+          <div class="value">${product.minStock} uds.</div>
         </div>
         <div class="detail-field">
           <div class="label">Stock Crítico</div>
-          <div class="value">${product.criticalStock} unidades</div>
-        </div>
-        <div class="detail-field full-width">
-          <div class="label">Descripción</div>
-          <div class="value">${product.description || 'Sin descripción'}</div>
+          <div class="value">${product.criticalStock} uds.</div>
         </div>
       </div>
 
-      <div class="detail-qr">
-        <div class="qr-placeholder">
-          QR del Producto<br>
-          <small>${product.sku}</small>
-        </div>
-        <span class="qr-label">📱 Código QR para ${product.sku}</span>
-        <small style="color:var(--gray-400);font-size:0.75rem;">(Próximamente: generación de QR dinámico)</small>
+      <div class="detail-desc">
+        <div class="label">Descripción</div>
+        ${product.description || '<em style="color:var(--gray-400);">Sin descripción registrada</em>'}
       </div>
 
-      <div class="form-actions" style="margin-top:16px;">
+      <div class="detail-qr-section">
+        <div class="qr-canvas" id="qr-container-${product.id}"></div>
+        <div class="detail-qr-info">
+          <strong>📱 Código QR del Producto</strong>
+          <span>ID: HM-Servicios/${product.sku} | ${product.name}</span>
+          <button class="btn-download-qr" id="btn-dl-qr-${product.id}">
+            ⬇ Descargar QR
+          </button>
+        </div>
+      </div>
+
+      <div class="form-actions" style="margin-top:12px;">
         <button class="btn" style="background:var(--gray-300);color:var(--gray-800);" onclick="App.closeDetailModal()">Cerrar</button>
         <button class="btn btn-primary" onclick="InventoryModule.showEditModal('${product.id}'); App.closeDetailModal();">Editar Producto</button>
       </div>
     `;
+
+    // Generate QR code
+    const qrContainer = document.getElementById('qr-container-' + product.id);
+    const qrData = `HM-Servicios/${product.sku}|${product.name}`;
+    
+    // Use QRCode from CDN
+    if (typeof QRCode !== 'undefined') {
+      const qr = new QRCode(qrContainer, {
+        text: qrData,
+        width: 90,
+        height: 90,
+        colorDark: '#1a237e',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+
+      // Download QR as PNG
+      document.getElementById('btn-dl-qr-' + product.id).addEventListener('click', function() {
+        const canvas = qrContainer.querySelector('canvas');
+        if (canvas) {
+          const link = document.createElement('a');
+          link.download = `QR-${product.sku}.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+        }
+      });
+    }
 
     document.getElementById('detail-modal').classList.remove('hidden');
     document.getElementById('modal-backdrop').classList.remove('hidden');
